@@ -41,7 +41,7 @@ are available on Github.
 
 ## Configuration and usage
 
-For configuration, a YAML formatted file is required. Please use the [sample configuration file](https://raw.githubusercontent.com/a-bali/janitor/master/config.yml) and change it according to your needs, following the comments in the file. Most of the variables are optional and have reasonable defaults, for details please see the comments.
+For configuration, a YAML formatted file is required. Please use the [sample configuration file](https://raw.githubusercontent.com/a-bali/janitor/master/config.yml) and change it according to your needs, following the comments in the file. Most of the variables are optional and have reasonable defaults, for details please see the comments. You can reference environment variables with `$ENV_VAR` or `${ENV_VAR}` which will be substituted by their value if they exist (or with an empty string if they don't.).
 
 A minimal but already operational configuration can be as short as follows (assuming Janitor's web interface will be available on its default port which is 8080):
 

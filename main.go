@@ -345,9 +345,11 @@ func loadConfig() {
 		return
 	}
 
+	replacedYamlFile := os.ExpandEnv(string(yamlFile))
+
 	newconfig := new(Config)
 
-	err = yaml.Unmarshal(yamlFile, &newconfig)
+	err = yaml.Unmarshal([]byte(replacedYamlFile), &newconfig)
 	if err != nil {
 		log("Unable to load config: " + err.Error())
 	}

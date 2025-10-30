@@ -1,5 +1,8 @@
 ### GENERAL CONFIGURATION
 ### All these directives are optional. If missing, defaults will be applied (see below).
+### Environment variables can be referenced with $VARIABLE_NAME or ${VARIABLE_NAME} which will be
+### substituted with the value of these variables (or empty if not present). No error will be
+### raised in case of missing variables.
 
 # Enable debug logging (default: false)
 # If enabled, detailed information about received data will be logged.
@@ -127,6 +130,7 @@ alert:
   # https://core.telegram.org/bots#6-botfather
   # https://stackoverflow.com/questions/45414021/get-telegram-channel-group-id
   #telegram:
+  #  token: $MY_TELEGRAM_TOKEN
   #  token: "INSERTYOURTOKENHERE"
   #  chat: 12
 
