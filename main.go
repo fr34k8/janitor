@@ -12,10 +12,12 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"html/template"
 	"time"
 
@@ -298,7 +300,31 @@ func main() {
 	http.HandleFunc("/api/stats", serveAPIStats)
 	http.HandleFunc("/api/data", serveAPIData)
 	http.HandleFunc("/api/metrics", serveAPIMetrics)
-	panic(http.ListenAndServe(fmt.Sprintf("%s:%d", getConfig().Web.Host, getConfig().Web.Port), nil))
+	addr := fmt.Sprintf("%s:%d", getConfig().Web.Host, getConfig().Web.Port)
+	srv := &http.Server{Addr: addr}
+
+	// start server in background
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log("Web server error: " + err.Error())
+		}
+	}()
+
+	// wait for shutdown signal
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	<-sig
+
+	log("Shutting down...")
+	if monitorMqttClient != nil && monitorMqttClient.IsConnected() {
+		monitorMqttClient.Disconnect(250)
+	}
+	if alertMqttClient != nil && alertMqttClient.IsConnected() {
+		alertMqttClient.Disconnect(250)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	srv.Shutdown(ctx)
 }
 
 // Set defaults for configuration values.
