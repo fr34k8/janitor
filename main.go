@@ -254,20 +254,7 @@ const (
 	STATUS_ERROR = 2
 )
 
-func main() {
-	fullversion = fmt.Sprintf("Janitor %s (build date %s, %s)", version, build, commit)
-	// load initial config
-	if len(os.Args) != 2 {
-		fmt.Println(fullversion)
-		fmt.Println("Usage: " + os.Args[0] + " <configfile>")
-		os.Exit(1)
-	}
-	configFile = os.Args[1]
-	loadConfig()
-	// start monitoring loop
-	monitoringLoop()
-
-	// parse the index template once
+func init() {
 	var err error
 	indexTmpl, err = template.New("w").Funcs(template.FuncMap{
 		"relaTime": relaTime,
@@ -290,6 +277,20 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func main() {
+	fullversion = fmt.Sprintf("Janitor %s (build date %s, %s)", version, build, commit)
+	// load initial config
+	if len(os.Args) != 2 {
+		fmt.Println(fullversion)
+		fmt.Println("Usage: " + os.Args[0] + " <configfile>")
+		os.Exit(1)
+	}
+	configFile = os.Args[1]
+	loadConfig()
+	// start monitoring loop
+	monitoringLoop()
 
 	// launch web server
 	log(fmt.Sprintf("Launching web server at %s:%d", getConfig().Web.Host, getConfig().Web.Port))
