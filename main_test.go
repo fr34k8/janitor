@@ -61,6 +61,9 @@ func TestMatchMQTTTopic(t *testing.T) {
 		{"sensors/#", "sensors/a/b", true},
 		// no match on different root
 		{"a/b/c", "x/b/c", false},
+		// pattern longer than subject (was index-out-of-range panic)
+		{"a/b/c", "a/b", false},
+		{"a/b/c/d", "a/b", false},
 	}
 	for _, tt := range tests {
 		got := matchMQTTTopic(tt.pattern, tt.subject)

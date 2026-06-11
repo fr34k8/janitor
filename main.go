@@ -741,17 +741,17 @@ func matchMQTTTopic(pattern string, subject string) bool {
 
 	for i := range pl {
 
+		if pl[i] == "#" {
+			return i == lasti
+		}
+		if i >= slen {
+			return false
+		}
 		if len(pl[i]) == 0 && len(sl[i]) == 0 {
 			continue
 		}
 		if len(pl[i]) == 0 {
 			continue
-		}
-		if len(sl[i]) == 0 && pl[i][0] != '#' {
-			return false
-		}
-		if pl[i][0] == '#' {
-			return i == lasti
 		}
 		if pl[i][0] != '+' && pl[i] != sl[i] {
 			return false
