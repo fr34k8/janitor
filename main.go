@@ -269,9 +269,9 @@ func main() {
 	var err error
 	indexTmpl, err = template.New("w").Funcs(template.FuncMap{
 		"relaTime": relaTime,
-		"json": func(i interface{}) string {
+		"json": func(i interface{}) template.HTML {
 			s, _ := json.MarshalIndent(i, "", "\t")
-			return string(s)
+			return template.HTML(s)
 		},
 		"floatornot": func(f float64) string {
 			if math.IsNaN(f) || f == 0 {
