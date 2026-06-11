@@ -1179,6 +1179,7 @@ func deleteWebItem(w http.ResponseWriter, r *http.Request) {
 					configLock.Lock()
 					config.Monitor.Ping.Targets = append(config.Monitor.Ping.Targets[:k], config.Monitor.Ping.Targets[k+1:]...)
 					configLock.Unlock()
+					break
 				}
 			}
 			delete(monitorData.Ping, f)
@@ -1188,6 +1189,7 @@ func deleteWebItem(w http.ResponseWriter, r *http.Request) {
 					configLock.Lock()
 					config.Monitor.HTTP.Targets = append(config.Monitor.HTTP.Targets[:k], config.Monitor.HTTP.Targets[k+1:]...)
 					configLock.Unlock()
+					break
 				}
 			}
 			delete(monitorData.HTTP, f)
@@ -1198,6 +1200,7 @@ func deleteWebItem(w http.ResponseWriter, r *http.Request) {
 					configLock.Lock()
 					config.Monitor.Exec.Targets = append(config.Monitor.Exec.Targets[:k], config.Monitor.Exec.Targets[k+1:]...)
 					configLock.Unlock()
+					break
 				}
 			}
 			delete(monitorData.Exec, f)
