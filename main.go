@@ -1151,7 +1151,9 @@ func deleteWebItem(w http.ResponseWriter, r *http.Request) {
 		f := r.Form["name"][0]
 		switch r.Form["type"][0] {
 		case "mqtt":
-			monitorData.MQTT[f].Deleted = true
+			if _, ok := monitorData.MQTT[f]; ok {
+				monitorData.MQTT[f].Deleted = true
+			}
 		case "ping":
 			for k, v := range getConfig().Monitor.Ping.Targets {
 				if v.Address == f {
@@ -1200,7 +1202,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 					log("Unable to parse requested timeout: " + r.Form["timeout"][0])
 				} else {
 					monitorData.Lock()
-					monitorData.MQTT[f].CustomTimeout = v
+					if _, ok := monitorData.MQTT[f]; ok {
+						monitorData.MQTT[f].CustomTimeout = v
+					}
 					monitorData.Unlock()
 					evaluateMQTT()
 				}
@@ -1214,7 +1218,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 						v = uint64(getConfig().Monitor.Ping.Interval)
 					}
 					monitorData.Lock()
-					monitorData.Ping[f].Interval = int(v)
+					if _, ok := monitorData.Ping[f]; ok {
+						monitorData.Ping[f].Interval = int(v)
+					}
 					monitorData.Unlock()
 				}
 			}
@@ -1226,7 +1232,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 						v = uint64(getConfig().Monitor.Ping.Threshold)
 					}
 					monitorData.Lock()
-					monitorData.Ping[f].Threshold = int(v)
+					if _, ok := monitorData.Ping[f]; ok {
+						monitorData.Ping[f].Threshold = int(v)
+					}
 					monitorData.Unlock()
 				}
 			}
@@ -1240,7 +1248,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 						v = uint64(getConfig().Monitor.HTTP.Interval)
 					}
 					monitorData.Lock()
-					monitorData.HTTP[f].Interval = int(v)
+					if _, ok := monitorData.HTTP[f]; ok {
+						monitorData.HTTP[f].Interval = int(v)
+					}
 					monitorData.Unlock()
 				}
 			}
@@ -1252,7 +1262,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 						v = uint64(getConfig().Monitor.HTTP.Timeout)
 					}
 					monitorData.Lock()
-					monitorData.HTTP[f].Timeout = int(v)
+					if _, ok := monitorData.HTTP[f]; ok {
+						monitorData.HTTP[f].Timeout = int(v)
+					}
 					monitorData.Unlock()
 				}
 			}
@@ -1264,7 +1276,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 						v = uint64(getConfig().Monitor.HTTP.Threshold)
 					}
 					monitorData.Lock()
-					monitorData.HTTP[f].Threshold = int(v)
+					if _, ok := monitorData.HTTP[f]; ok {
+						monitorData.HTTP[f].Threshold = int(v)
+					}
 					monitorData.Unlock()
 				}
 			}
@@ -1278,7 +1292,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 						v = uint64(getConfig().Monitor.Exec.Interval)
 					}
 					monitorData.Lock()
-					monitorData.Exec[f].Interval = int(v)
+					if _, ok := monitorData.Exec[f]; ok {
+						monitorData.Exec[f].Interval = int(v)
+					}
 					monitorData.Unlock()
 				}
 			}
@@ -1290,7 +1306,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 						v = uint64(getConfig().Monitor.Exec.Timeout)
 					}
 					monitorData.Lock()
-					monitorData.Exec[f].Timeout = int(v)
+					if _, ok := monitorData.Exec[f]; ok {
+						monitorData.Exec[f].Timeout = int(v)
+					}
 					monitorData.Unlock()
 				}
 			}
@@ -1302,7 +1320,9 @@ func configWebItem(w http.ResponseWriter, r *http.Request) {
 						v = uint64(getConfig().Monitor.Exec.Threshold)
 					}
 					monitorData.Lock()
-					monitorData.Exec[f].Threshold = int(v)
+					if _, ok := monitorData.Exec[f]; ok {
+						monitorData.Exec[f].Threshold = int(v)
+					}
 					monitorData.Unlock()
 				}
 			}
