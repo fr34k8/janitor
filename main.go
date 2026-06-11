@@ -836,47 +836,54 @@ func matchMQTTTopic(pattern string, subject string) bool {
 func checkPing() {
 	type pingEntry struct {
 		address string
-		e       *PingMonitorData
+		interval int
+		timeout  int
 	}
 	monitorData.RLock()
 	var toCheck []pingEntry
 	for address, e := range monitorData.Ping {
 		if e.Timestamp.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
-			toCheck = append(toCheck, pingEntry{address, e})
+			toCheck = append(toCheck, pingEntry{address, e.Interval, e.Threshold})
 		}
 	}
 	monitorData.RUnlock()
 
 	for _, entry := range toCheck {
 		address := entry.address
-		e := entry.e
 		r := ping(address)
 		debug(fmt.Sprintf("Pinging %s: %t", address, r))
 
+		var pending []pendingAlert
 		monitorData.Lock()
-		e.Timestamp = time.Now()
-		if r {
-			e.TotalOK++
-			e.LastOK = time.Now()
-			e.Errors = 0
-			if e.Status == STATUS_ERROR {
-				alert("Ping", e.Name, STATUS_OK, e.LastErrorStart, "")
-			}
-			e.Status = STATUS_OK
-		} else {
-			e.Errors++
-			e.TotalError++
-			e.LastError = time.Now()
-			if e.Status == STATUS_OK {
-				e.Status = STATUS_WARN
-			}
-			if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
-				alert("Ping", e.Name, STATUS_ERROR, e.LastOK, "")
-				e.Status = STATUS_ERROR
-				e.LastErrorStart = time.Now()
+		e, ok := monitorData.Ping[address]
+		if ok {
+			e.Timestamp = time.Now()
+			if r {
+				e.TotalOK++
+				e.LastOK = time.Now()
+				e.Errors = 0
+				if e.Status == STATUS_ERROR {
+					pending = append(pending, pendingAlert{"Ping", e.Name, STATUS_OK, e.LastErrorStart, ""})
+				}
+				e.Status = STATUS_OK
+			} else {
+				e.Errors++
+				e.TotalError++
+				e.LastError = time.Now()
+				if e.Status == STATUS_OK {
+					e.Status = STATUS_WARN
+				}
+				if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
+					pending = append(pending, pendingAlert{"Ping", e.Name, STATUS_ERROR, e.LastOK, ""})
+					e.Status = STATUS_ERROR
+					e.LastErrorStart = time.Now()
+				}
 			}
 		}
 		monitorData.Unlock()
+		for _, a := range pending {
+			alert(a.sensorType, a.sensorName, a.status, a.since, a.msg)
+		}
 	}
 }
 
@@ -884,49 +891,56 @@ func checkPing() {
 func checkHTTP() {
 	type httpEntry struct {
 		address string
-		e       *HTTPMonitorData
+		value   string
+		timeout int
 	}
 	monitorData.RLock()
 	var toCheck []httpEntry
 	for address, e := range monitorData.HTTP {
 		if e.Timestamp.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
-			toCheck = append(toCheck, httpEntry{address, e})
+			toCheck = append(toCheck, httpEntry{address, e.Value, e.Timeout})
 		}
 	}
 	monitorData.RUnlock()
 
 	for _, entry := range toCheck {
 		address := entry.address
-		e := entry.e
-		r, errStr, val := performHTTPCheck(address, e.Value, e.Timeout)
+		r, errStr, val := performHTTPCheck(address, entry.value, entry.timeout)
 		debug(fmt.Sprintf("HTTP request %s: %t %s", address, r, errStr))
 
+		var pending []pendingAlert
 		monitorData.Lock()
-		e.Timestamp = time.Now()
-		if r {
-			e.TotalOK++
-			e.LastOK = time.Now()
-			e.LastValue = val
-			e.Errors = 0
-			if e.Status == STATUS_ERROR {
-				alert("HTTP", e.Name, STATUS_OK, e.LastErrorStart, "")
-			}
-			e.Status = STATUS_OK
-		} else {
-			e.Errors++
-			e.TotalError++
-			e.LastError = time.Now()
-			e.LastErrorValue = errStr
-			if e.Status == STATUS_OK {
-				e.Status = STATUS_WARN
-			}
-			if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
-				alert("HTTP", e.Name, STATUS_ERROR, e.LastOK, errStr)
-				e.Status = STATUS_ERROR
-				e.LastErrorStart = time.Now()
+		e, ok := monitorData.HTTP[address]
+		if ok {
+			e.Timestamp = time.Now()
+			if r {
+				e.TotalOK++
+				e.LastOK = time.Now()
+				e.LastValue = val
+				e.Errors = 0
+				if e.Status == STATUS_ERROR {
+					pending = append(pending, pendingAlert{"HTTP", e.Name, STATUS_OK, e.LastErrorStart, ""})
+				}
+				e.Status = STATUS_OK
+			} else {
+				e.Errors++
+				e.TotalError++
+				e.LastError = time.Now()
+				e.LastErrorValue = errStr
+				if e.Status == STATUS_OK {
+					e.Status = STATUS_WARN
+				}
+				if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
+					pending = append(pending, pendingAlert{"HTTP", e.Name, STATUS_ERROR, e.LastOK, errStr})
+					e.Status = STATUS_ERROR
+					e.LastErrorStart = time.Now()
+				}
 			}
 		}
 		monitorData.Unlock()
+		for _, a := range pending {
+			alert(a.sensorType, a.sensorName, a.status, a.since, a.msg)
+		}
 	}
 }
 
@@ -934,46 +948,52 @@ func checkHTTP() {
 func checkExec() {
 	type execEntry struct {
 		command string
-		e       *ExecMonitorData
+		timeout int
 	}
 	monitorData.RLock()
 	var toCheck []execEntry
 	for command, e := range monitorData.Exec {
 		if e.Timestamp.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
-			toCheck = append(toCheck, execEntry{command, e})
+			toCheck = append(toCheck, execEntry{command, e.Timeout})
 		}
 	}
 	monitorData.RUnlock()
 
 	for _, entry := range toCheck {
 		command := entry.command
-		e := entry.e
-		r := performExecCheck(command, e.Timeout)
+		r := performExecCheck(command, entry.timeout)
 
+		var pending []pendingAlert
 		monitorData.Lock()
-		e.Timestamp = time.Now()
-		if r {
-			e.TotalOK++
-			e.LastOK = time.Now()
-			e.Errors = 0
-			if e.Status == STATUS_ERROR {
-				alert("Exec", e.Name, STATUS_OK, e.LastErrorStart, "")
-			}
-			e.Status = STATUS_OK
-		} else {
-			e.Errors++
-			e.TotalError++
-			e.LastError = time.Now()
-			if e.Status == STATUS_OK {
-				e.Status = STATUS_WARN
-			}
-			if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
-				alert("Exec", e.Name, STATUS_ERROR, e.LastOK, "")
-				e.Status = STATUS_ERROR
-				e.LastErrorStart = time.Now()
+		e, ok := monitorData.Exec[command]
+		if ok {
+			e.Timestamp = time.Now()
+			if r {
+				e.TotalOK++
+				e.LastOK = time.Now()
+				e.Errors = 0
+				if e.Status == STATUS_ERROR {
+					pending = append(pending, pendingAlert{"Exec", e.Name, STATUS_OK, e.LastErrorStart, ""})
+				}
+				e.Status = STATUS_OK
+			} else {
+				e.Errors++
+				e.TotalError++
+				e.LastError = time.Now()
+				if e.Status == STATUS_OK {
+					e.Status = STATUS_WARN
+				}
+				if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
+					pending = append(pending, pendingAlert{"Exec", e.Name, STATUS_ERROR, e.LastOK, ""})
+					e.Status = STATUS_ERROR
+					e.LastErrorStart = time.Now()
+				}
 			}
 		}
 		monitorData.Unlock()
+		for _, a := range pending {
+			alert(a.sensorType, a.sensorName, a.status, a.since, a.msg)
+		}
 	}
 }
 
