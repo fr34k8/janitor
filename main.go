@@ -936,17 +936,19 @@ func performHTTPCheck(url string, pattern string, timeout int) (bool, string, st
 	resp, err := client.Get(url)
 	if err != nil {
 		errValue = err.Error()
-	} else if resp.StatusCode != http.StatusOK {
-		errValue = fmt.Sprintf("status code %d", resp.StatusCode)
 	} else {
 		defer resp.Body.Close()
-		bodyBytes, bodyErr := io.ReadAll(resp.Body)
-		if bodyErr != nil {
-			errValue = bodyErr.Error()
+		if resp.StatusCode != http.StatusOK {
+			errValue = fmt.Sprintf("status code %d", resp.StatusCode)
 		} else {
-			okValue = string(bodyBytes)
-			if pattern != "" && !strings.Contains(okValue, pattern) {
-				errValue = "Response does not match pattern"
+			bodyBytes, bodyErr := io.ReadAll(resp.Body)
+			if bodyErr != nil {
+				errValue = bodyErr.Error()
+			} else {
+				okValue = string(bodyBytes)
+				if pattern != "" && !strings.Contains(okValue, pattern) {
+					errValue = "Response does not match pattern"
+				}
 			}
 		}
 	}
