@@ -1084,7 +1084,9 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 	debug("Web request " + r.RequestURI + " from " + r.RemoteAddr)
 
 	monitorData.RLock()
+	defer monitorData.RUnlock()
 	logLock.RLock()
+	defer logLock.RUnlock()
 
 	indexTmpl.Execute(w,
 		PageData{
@@ -1094,9 +1096,6 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 			getConfig(),
 			&logHistory,
 			&fullversion})
-
-	monitorData.RUnlock()
-	logLock.RUnlock()
 }
 
 // Counts targets per type and status
