@@ -7,6 +7,10 @@ COMMIT  := $(shell git describe --always --long)
 build:
 	@go build -ldflags="-X main.version=$(VERSION) -X main.build=$(BUILD) -X main.commit=$(COMMIT)"
 
+.PHONY: test
+test:
+	@go test -timeout 60s ./...
+
 static_build:
 	@CGO_ENABLED=0 go build -ldflags="-X main.version=$(VERSION) -X main.build=$(BUILD) -X main.commit=$(COMMIT)"
 
