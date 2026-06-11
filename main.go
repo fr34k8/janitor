@@ -1146,7 +1146,7 @@ func serveAPIData(w http.ResponseWriter, r *http.Request) {
 	monitorData.RLock()
 	defer monitorData.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(monitorData)
+	json.NewEncoder(w).Encode(&monitorData)
 }
 
 // Reloads the config based on web request.
