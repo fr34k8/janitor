@@ -237,6 +237,8 @@ var (
 
 	//go:embed templates/index.html
 	index_template string
+
+	indexTmpl *template.Template
 )
 
 const (
@@ -262,6 +264,32 @@ func main() {
 	loadConfig()
 	// start monitoring loop
 	monitoringLoop()
+
+	// parse the index template once
+	var err error
+	indexTmpl, err = template.New("w").Funcs(template.FuncMap{
+		"relaTime": relaTime,
+		"escape":   template.HTMLEscaper,
+		"json": func(i interface{}) string {
+			s, _ := json.MarshalIndent(i, "", "\t")
+			return string(s)
+		},
+		"floatornot": func(f float64) string {
+			if math.IsNaN(f) || f == 0 {
+				return "..."
+			} else {
+				return fmt.Sprintf("%.2f", f)
+			}
+		},
+		"id": func(s string) uint64 {
+			h := fnv.New64a()
+			h.Write([]byte(s))
+			return h.Sum64()
+		}}).Parse(index_template)
+	if err != nil {
+		panic(err)
+	}
+
 	// launch web server
 	log(fmt.Sprintf("Launching web server at %s:%d", getConfig().Web.Host, getConfig().Web.Port))
 	http.HandleFunc("/", serveIndex)
@@ -1030,33 +1058,10 @@ func getConfig() *Config {
 func serveIndex(w http.ResponseWriter, r *http.Request) {
 	debug("Web request " + r.RequestURI + " from " + r.RemoteAddr)
 
-	tmpl, err := template.New("w").Funcs(template.FuncMap{
-		"relaTime": relaTime,
-		"escape":   template.HTMLEscaper,
-		"json": func(i interface{}) string {
-			s, _ := json.MarshalIndent(i, "", "\t")
-			return string(s)
-		},
-		"floatornot": func(f float64) string {
-			if math.IsNaN(f) || f == 0 {
-				return "..."
-			} else {
-				return fmt.Sprintf("%.2f", f)
-			}
-		},
-		"id": func(s string) uint64 {
-			h := fnv.New64a()
-			h.Write([]byte(s))
-			return h.Sum64()
-		}}).Parse(index_template)
-	if err != nil {
-		panic(err)
-	}
-
 	monitorData.RLock()
 	logLock.RLock()
 
-	tmpl.Execute(w,
+	indexTmpl.Execute(w,
 		PageData{
 			&monitorData,
 			time.Now(),
