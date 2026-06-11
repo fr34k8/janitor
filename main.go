@@ -665,6 +665,14 @@ func monitoringLoop() {
 
 }
 
+type pendingAlert struct {
+	sensorType string
+	sensorName string
+	status     int
+	since      time.Time
+	msg        string
+}
+
 // Periodically evaluate MQTT monitoring targets and issue alerts/recoveries as needed.
 func evaluateMQTT() {
 
@@ -676,7 +684,8 @@ func evaluateMQTT() {
 	}
 
 	monitorData.Lock()
-	defer monitorData.Unlock()
+
+	var alerts []pendingAlert
 
 	for topic, v := range monitorData.MQTT {
 
@@ -711,7 +720,7 @@ func evaluateMQTT() {
 
 		if elapsed > timeout {
 			if v.Status != STATUS_ERROR {
-				alert("MQTT", v.Name, STATUS_ERROR, v.LastSeen, fmt.Sprintf("timeout %.2fs", timeout))
+				alerts = append(alerts, pendingAlert{"MQTT", v.Name, STATUS_ERROR, v.LastSeen, fmt.Sprintf("timeout %.2fs", timeout)})
 				v.LastError = time.Now()
 				v.Alerts++
 			}
@@ -720,11 +729,17 @@ func evaluateMQTT() {
 			v.Status = STATUS_WARN
 		} else {
 			if v.Status == STATUS_ERROR {
-				alert("MQTT", v.Name, STATUS_OK, v.LastError, "")
+				alerts = append(alerts, pendingAlert{"MQTT", v.Name, STATUS_OK, v.LastError, ""})
 			}
 			v.Status = STATUS_OK
 		}
 		monitorData.MQTT[topic] = v
+	}
+
+	monitorData.Unlock()
+
+	for _, a := range alerts {
+		alert(a.sensorType, a.sensorName, a.status, a.since, a.msg)
 	}
 }
 
