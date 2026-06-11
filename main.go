@@ -352,6 +352,9 @@ func loadConfig() {
 	err = yaml.Unmarshal([]byte(replacedYamlFile), &newconfig)
 	if err != nil {
 		log("Unable to load config: " + err.Error())
+		if config != nil {
+			return
+		}
 	}
 
 	setDefaults(newconfig)
