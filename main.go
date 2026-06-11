@@ -573,8 +573,8 @@ func connectMqtt() {
 func connectMqttAlert() {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("%s:%d", getConfig().Alert.MQTT.Server, getConfig().Alert.MQTT.Port))
-	opts.SetUsername(getConfig().Monitor.MQTT.User)
-	opts.SetPassword(getConfig().Monitor.MQTT.Password)
+	opts.SetUsername(getConfig().Alert.MQTT.User)
+	opts.SetPassword(getConfig().Alert.MQTT.Password)
 	alertMqttClient = mqtt.NewClient(opts)
 	if token := alertMqttClient.Connect(); token.Wait() && token.Error() != nil {
 		log("Unable to connect to MQTT for alerting: " + token.Error().Error())
