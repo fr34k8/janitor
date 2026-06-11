@@ -381,7 +381,8 @@ func setDefaults(c *Config) {
 }
 
 // Loads or reloads the configuration and initializes MQTT and Telegram connections accordingly.
-func loadConfig() {
+// Returns true on success, false if the config file could not be read or parsed (existing config preserved).
+func loadConfig() bool {
 
 	// set up initial config for logging and others to work
 	if config == nil {
@@ -395,7 +396,7 @@ func loadConfig() {
 	yamlFile, err := os.ReadFile(configFile)
 	if err != nil {
 		log("Unable to load config: " + err.Error())
-		return
+		return false
 	}
 
 	replacedYamlFile := os.ExpandEnv(string(yamlFile))
@@ -406,7 +407,7 @@ func loadConfig() {
 	if err != nil {
 		log("Unable to load config: " + err.Error())
 		if config != nil {
-			return
+			return false
 		}
 	}
 
@@ -571,6 +572,7 @@ func loadConfig() {
 		connectMqttAlert()
 
 	}
+	return true
 }
 
 func connectTelegram() {
@@ -1213,7 +1215,10 @@ func serveAPIData(w http.ResponseWriter, r *http.Request) {
 // Reloads the config based on web request.
 func reloadConfig(w http.ResponseWriter, r *http.Request) {
 	log("Reloading config based on web request from " + r.RemoteAddr)
-	loadConfig()
+	if !loadConfig() {
+		http.Error(w, "Failed to reload config: check the application log for details", http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
