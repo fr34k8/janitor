@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
+	"html/template"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -269,7 +269,6 @@ func main() {
 	var err error
 	indexTmpl, err = template.New("w").Funcs(template.FuncMap{
 		"relaTime": relaTime,
-		"escape":   template.HTMLEscaper,
 		"json": func(i interface{}) string {
 			s, _ := json.MarshalIndent(i, "", "\t")
 			return string(s)
