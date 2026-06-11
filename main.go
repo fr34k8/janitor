@@ -1427,7 +1427,9 @@ func alert(sensorType string, sensorName string, status int, since time.Time, ms
 				log("Unable to compile payload for MQTT alert: " + err.Error())
 				return
 			}
-			alertMqttClient.Publish(getConfig().Alert.MQTT.Topic, 0, false, b)
+			if token := alertMqttClient.Publish(getConfig().Alert.MQTT.Topic, 0, false, b); token.Wait() && token.Error() != nil {
+				log("Unable to publish MQTT alert: " + token.Error().Error())
+			}
 		}
 	}
 }
