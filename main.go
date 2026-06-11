@@ -522,8 +522,9 @@ func connectTelegram() {
 	tgbot, err = tgbotapi.NewBotAPI(getConfig().Alert.Telegram.Token)
 	if err != nil {
 		log("Unable to connect to Telegram: " + err.Error())
+	} else {
+		log("Connected to telegram bot")
 	}
-	log("Connected to telegram bot")
 }
 
 func connectMqtt() {
