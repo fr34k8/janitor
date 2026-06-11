@@ -673,13 +673,15 @@ func onMessageReceived(client mqtt.Client, message mqtt.Message) {
 		e.History = e.History[1:]
 	}
 
-	var total float64 = 0
-	for i, v := range e.History {
-		if i > 0 {
-			total += v.Timestamp.Sub(e.History[i-1].Timestamp).Seconds()
+	if len(e.History) > 1 {
+		var total float64 = 0
+		for i, v := range e.History {
+			if i > 0 {
+				total += v.Timestamp.Sub(e.History[i-1].Timestamp).Seconds()
+			}
 		}
+		e.AvgTransmit = total / float64(len(e.History)-1)
 	}
-	e.AvgTransmit = total / float64(len(e.History)-1)
 	if e.FirstSeen.IsZero() {
 		e.FirstSeen = time.Now()
 	}
@@ -770,8 +772,8 @@ func evaluateMQTT() {
 		// Store calculated timeout for showing on web
 		v.Timeout = timeout
 
-		// no custom timeout is configured, AvgTransmit is not yet established (NaN) -> skip
-		if math.IsNaN(timeout) {
+		// no timeout can be determined yet (single sample or no config) -> skip
+		if math.IsNaN(timeout) || timeout == 0 {
 			continue
 		}
 
