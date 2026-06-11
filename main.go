@@ -781,139 +781,146 @@ func matchMQTTTopic(pattern string, subject string) bool {
 
 // Periodically iterate through ping targets and perform check if required.
 func checkPing() {
+	type pingEntry struct {
+		address string
+		e       *PingMonitorData
+	}
 	monitorData.RLock()
-	defer monitorData.RUnlock()
+	var toCheck []pingEntry
 	for address, e := range monitorData.Ping {
-		ts := e.Timestamp
-		// proceed only if last check (regardless of outcome) was before now minus the configured interval
-		if ts.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
-
-			monitorData.RUnlock()
-			r := ping(address)
-			debug(fmt.Sprintf("Pinging %s: %t", address, r))
-			monitorData.Lock()
-
-			e.Timestamp = time.Now()
-			if r {
-				e.TotalOK++
-				e.LastOK = time.Now()
-				e.Errors = 0
-				if e.Status == STATUS_ERROR {
-					alert("Ping", e.Name, STATUS_OK, e.LastErrorStart, "")
-				}
-				e.Status = STATUS_OK
-			} else {
-				e.Errors++
-				e.TotalError++
-				e.LastError = time.Now()
-				// First error will set STATUS_WARN, error will be triggered after the threshold
-				if e.Status == STATUS_OK {
-					e.Status = STATUS_WARN
-				}
-				if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
-					alert("Ping", e.Name, STATUS_ERROR, e.LastOK, "")
-					e.Status = STATUS_ERROR
-					e.LastErrorStart = time.Now()
-				}
-			}
-			monitorData.Unlock()
-			monitorData.RLock()
-
+		if e.Timestamp.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
+			toCheck = append(toCheck, pingEntry{address, e})
 		}
+	}
+	monitorData.RUnlock()
 
+	for _, entry := range toCheck {
+		address := entry.address
+		e := entry.e
+		r := ping(address)
+		debug(fmt.Sprintf("Pinging %s: %t", address, r))
+
+		monitorData.Lock()
+		e.Timestamp = time.Now()
+		if r {
+			e.TotalOK++
+			e.LastOK = time.Now()
+			e.Errors = 0
+			if e.Status == STATUS_ERROR {
+				alert("Ping", e.Name, STATUS_OK, e.LastErrorStart, "")
+			}
+			e.Status = STATUS_OK
+		} else {
+			e.Errors++
+			e.TotalError++
+			e.LastError = time.Now()
+			if e.Status == STATUS_OK {
+				e.Status = STATUS_WARN
+			}
+			if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
+				alert("Ping", e.Name, STATUS_ERROR, e.LastOK, "")
+				e.Status = STATUS_ERROR
+				e.LastErrorStart = time.Now()
+			}
+		}
+		monitorData.Unlock()
 	}
 }
 
 // Periodically iterate through HTTP targets and perform check if required.
 func checkHTTP() {
+	type httpEntry struct {
+		address string
+		e       *HTTPMonitorData
+	}
 	monitorData.RLock()
-	defer monitorData.RUnlock()
+	var toCheck []httpEntry
 	for address, e := range monitorData.HTTP {
-		ts := e.Timestamp
-		// proceed only if last check (regardless of outcome) was before now minus the configured interval
-		if ts.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
-
-			monitorData.RUnlock()
-			r, err, val := performHTTPCheck(address, e.Value, e.Timeout)
-			debug(fmt.Sprintf("HTTP request %s: %t %s", address, r, err))
-			monitorData.Lock()
-
-			e.Timestamp = time.Now()
-			if r {
-				e.TotalOK++
-				e.LastOK = time.Now()
-				e.LastValue = val
-				e.Errors = 0
-				if e.Status == STATUS_ERROR {
-					alert("HTTP", e.Name, STATUS_OK, e.LastErrorStart, "")
-				}
-				e.Status = STATUS_OK
-			} else {
-				e.Errors++
-				e.TotalError++
-				e.LastError = time.Now()
-				e.LastErrorValue = err
-				// First error will set STATUS_WARN, error will be triggered after the threshold
-				if e.Status == STATUS_OK {
-					e.Status = STATUS_WARN
-				}
-				if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
-					alert("HTTP", e.Name, STATUS_ERROR, e.LastOK, err)
-					e.Status = STATUS_ERROR
-					e.LastErrorStart = time.Now()
-				}
-
-			}
-			monitorData.Unlock()
-			monitorData.RLock()
+		if e.Timestamp.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
+			toCheck = append(toCheck, httpEntry{address, e})
 		}
+	}
+	monitorData.RUnlock()
 
+	for _, entry := range toCheck {
+		address := entry.address
+		e := entry.e
+		r, errStr, val := performHTTPCheck(address, e.Value, e.Timeout)
+		debug(fmt.Sprintf("HTTP request %s: %t %s", address, r, errStr))
+
+		monitorData.Lock()
+		e.Timestamp = time.Now()
+		if r {
+			e.TotalOK++
+			e.LastOK = time.Now()
+			e.LastValue = val
+			e.Errors = 0
+			if e.Status == STATUS_ERROR {
+				alert("HTTP", e.Name, STATUS_OK, e.LastErrorStart, "")
+			}
+			e.Status = STATUS_OK
+		} else {
+			e.Errors++
+			e.TotalError++
+			e.LastError = time.Now()
+			e.LastErrorValue = errStr
+			if e.Status == STATUS_OK {
+				e.Status = STATUS_WARN
+			}
+			if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
+				alert("HTTP", e.Name, STATUS_ERROR, e.LastOK, errStr)
+				e.Status = STATUS_ERROR
+				e.LastErrorStart = time.Now()
+			}
+		}
+		monitorData.Unlock()
 	}
 }
 
 // Periodically iterate through exec targets and perform check if required.
 func checkExec() {
+	type execEntry struct {
+		command string
+		e       *ExecMonitorData
+	}
 	monitorData.RLock()
-	defer monitorData.RUnlock()
+	var toCheck []execEntry
 	for command, e := range monitorData.Exec {
-		ts := e.Timestamp
-		// proceed only if last check (regardless of outcome) was before now minus the configured interval
-		if ts.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
-
-			monitorData.RUnlock()
-			r := performExecCheck(command, e.Timeout)
-			monitorData.Lock()
-
-			e.Timestamp = time.Now()
-			if r {
-				e.TotalOK++
-				e.LastOK = time.Now()
-
-				e.Errors = 0
-				if e.Status == STATUS_ERROR {
-					alert("Exec", e.Name, STATUS_OK, e.LastErrorStart, "")
-				}
-				e.Status = STATUS_OK
-			} else {
-				e.Errors++
-				e.TotalError++
-				e.LastError = time.Now()
-
-				// First error will set STATUS_WARN, error will be triggered after the threshold
-				if e.Status == STATUS_OK {
-					e.Status = STATUS_WARN
-				}
-				if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
-					alert("Exec", e.Name, STATUS_ERROR, e.LastOK, "")
-					e.Status = STATUS_ERROR
-					e.LastErrorStart = time.Now()
-				}
-
-			}
-			monitorData.Unlock()
-			monitorData.RLock()
+		if e.Timestamp.Add(time.Duration(e.Interval) * time.Second).Before(time.Now()) {
+			toCheck = append(toCheck, execEntry{command, e})
 		}
+	}
+	monitorData.RUnlock()
 
+	for _, entry := range toCheck {
+		command := entry.command
+		e := entry.e
+		r := performExecCheck(command, e.Timeout)
+
+		monitorData.Lock()
+		e.Timestamp = time.Now()
+		if r {
+			e.TotalOK++
+			e.LastOK = time.Now()
+			e.Errors = 0
+			if e.Status == STATUS_ERROR {
+				alert("Exec", e.Name, STATUS_OK, e.LastErrorStart, "")
+			}
+			e.Status = STATUS_OK
+		} else {
+			e.Errors++
+			e.TotalError++
+			e.LastError = time.Now()
+			if e.Status == STATUS_OK {
+				e.Status = STATUS_WARN
+			}
+			if e.Status == STATUS_WARN && e.Errors >= e.Threshold {
+				alert("Exec", e.Name, STATUS_ERROR, e.LastOK, "")
+				e.Status = STATUS_ERROR
+				e.LastErrorStart = time.Now()
+			}
+		}
+		monitorData.Unlock()
 	}
 }
 
