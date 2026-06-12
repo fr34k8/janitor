@@ -187,12 +187,15 @@ type MonitorData struct {
 
 // Data struct for serving main web page.
 type PageData struct {
-	MonitorData *MonitorData
-	Timestamp   time.Time
-	Uptime      time.Time
-	Config      *Config
-	LogHistory  *[]TimedEntry
-	Fullversion *string
+	MonitorData      *MonitorData
+	Timestamp        time.Time
+	Uptime           time.Time
+	Config           *Config
+	LogHistory       *[]TimedEntry
+	Fullversion      *string
+	StatusOkCount    int
+	StatusWarnCount  int
+	StatusErrorCount int
 }
 
 // Data struct of JSON payload for MQTT alerts.
@@ -273,6 +276,26 @@ func init() {
 			h := fnv.New64a()
 			h.Write([]byte(s))
 			return h.Sum64()
+		},
+		"statusClass": func(s int32) string {
+			switch s {
+			case STATUS_WARN:
+				return "warn"
+			case STATUS_ERROR:
+				return "err"
+			default:
+				return "ok"
+			}
+		},
+		"statusLabel": func(s int32) string {
+			switch s {
+			case STATUS_WARN:
+				return "Warning"
+			case STATUS_ERROR:
+				return "Error"
+			default:
+				return "OK"
+			}
 		}}).Parse(index_template)
 	if err != nil {
 		panic(err)
@@ -1113,6 +1136,50 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 	logLock.RLock()
 	defer logLock.RUnlock()
 
+	var okCount, warnCount, errCount int
+	for _, v := range monitorData.MQTT {
+		if !v.Deleted {
+			switch v.Status {
+			case STATUS_OK:
+				okCount++
+			case STATUS_WARN:
+				warnCount++
+			case STATUS_ERROR:
+				errCount++
+			}
+		}
+	}
+	for _, v := range monitorData.Ping {
+		switch v.Status {
+		case STATUS_OK:
+			okCount++
+		case STATUS_WARN:
+			warnCount++
+		case STATUS_ERROR:
+			errCount++
+		}
+	}
+	for _, v := range monitorData.HTTP {
+		switch v.Status {
+		case STATUS_OK:
+			okCount++
+		case STATUS_WARN:
+			warnCount++
+		case STATUS_ERROR:
+			errCount++
+		}
+	}
+	for _, v := range monitorData.Exec {
+		switch v.Status {
+		case STATUS_OK:
+			okCount++
+		case STATUS_WARN:
+			warnCount++
+		case STATUS_ERROR:
+			errCount++
+		}
+	}
+
 	indexTmpl.Execute(w,
 		PageData{
 			&monitorData,
@@ -1120,7 +1187,10 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 			uptime,
 			getConfig(),
 			&logHistory,
-			&fullversion})
+			&fullversion,
+			okCount,
+			warnCount,
+			errCount})
 }
 
 // Counts targets per type and status

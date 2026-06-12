@@ -1,543 +1,703 @@
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-	<style>
-		body {
-			font-family: Arial
-		}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Janitor</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-		.modal {
-			position: fixed;
-			top: 0;
-			left: 0;
-			bottom: 0;
-			right: 0;
-			display: none;
-			overflow: auto;
-			background-color: #000000;
-			background-color: rgba(0, 0, 0, 0.7);
-			z-index: 9999;
-		}
+  :root {
+    --ok:      #16a34a;
+    --ok-bg:   #dcfce7;
+    --warn:    #d97706;
+    --warn-bg: #fef3c7;
+    --err:     #dc2626;
+    --err-bg:  #fee2e2;
+    --border:  #e2e8f0;
+    --muted:   #64748b;
+    --surface: #f8fafc;
+    --card:    #ffffff;
+    --text:    #0f172a;
+    --accent:  #3b82f6;
+  }
 
-		.modal-window {
-			position: relative;
-			background-color: #FFFFFF;
-			width: 50%;
-			margin: 10% auto;
-			padding: 20px;
-		}
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    background: var(--surface);
+    color: var(--text);
+    min-height: 100vh;
+  }
 
-		.open {
-			display: block;
-		}
+  /* ── Top bar ─────────────────────────────── */
+  .topbar {
+    background: #1e293b; color: #f1f5f9;
+    padding: 0 1.5rem; display: flex; align-items: center;
+    justify-content: space-between; height: 52px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: .03em; }
+  .topbar-actions { display: flex; gap: 1rem; align-items: center; }
+  .topbar-actions a { color: #94a3b8; text-decoration: none; font-size: .8rem; transition: color .15s; }
+  .topbar-actions a:hover { color: #f1f5f9; }
 
-		table {
-			width: 100%;
-			border-collapse: collapse;
-		}
+  /* ── Page ────────────────────────────────── */
+  .page { padding: 1.5rem 1rem; }
 
-		tr,
-		th,
-		td {
-			border: 1px solid grey;
-			padding: 2px;
-			text-align: center
-		}
+  /* ── Filter pills ────────────────────────── */
+  .summary { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
+  .pill {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .25rem .7rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 600; font-family: inherit;
+    cursor: pointer; border: 2px solid transparent;
+    transition: border-color .15s, opacity .15s;
+  }
+  .pill-ok   { background: var(--ok-bg);   color: var(--ok); }
+  .pill-warn { background: var(--warn-bg); color: var(--warn); }
+  .pill-err  { background: var(--err-bg);  color: var(--err); }
+  .pill-type { background: #f1f5f9; color: #475569; }
+  .pill-dot  { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .pill-ok.active   { border-color: var(--ok); }
+  .pill-warn.active { border-color: var(--warn); }
+  .pill-err.active  { border-color: var(--err); }
+  .pill-type.active { border-color: var(--accent); color: var(--accent); background: #eff6ff; }
+  .pill-group { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+  .pill-group-right { margin-left: auto; }
+  .pill-count {
+    background: rgba(0,0,0,.1); border-radius: 999px;
+    padding: .05rem .38rem; font-size: .64rem; font-weight: 700;
+  }
+  .summary.status-filtered .pill[data-filter]:not(.active) { opacity: .4; }
+  .summary.type-filtered   .pill[data-type]:not(.active)   { opacity: .4; }
 
-		th {
-			background-color: #aaaaaa;
-			padding: 5px
-		}
+  /* ── Section ─────────────────────────────── */
+  .section { margin-bottom: 1.5rem; }
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+  .section-head h2 { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 
-		td.name {
-			text-align: left
-		}
+  /* ── Table card ──────────────────────────── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: .5rem; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: #f1f5f9; font-size: .68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    padding: .45rem .65rem; text-align: left;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td {
+    padding: .55rem .65rem; border-bottom: 1px solid var(--border);
+    vertical-align: middle; font-size: .8rem;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f1f5f9; }
 
-		td.payload {
-		    width: 100%;
-			max-width: 0;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-		}
+  /* ── Status stripe — inset box-shadow on td:first-child.
+     Painted above the background layer, so hover cannot overwrite it. ── */
+  tbody tr[data-status="ok"]   td:first-child { box-shadow: inset 4px 0 0 var(--ok); }
+  tbody tr[data-status="warn"] td:first-child { box-shadow: inset 4px 0 0 var(--warn); }
+  tbody tr[data-status="err"]  td:first-child { box-shadow: inset 4px 0 0 var(--err); }
 
-		td.status0,
-		td.status1,
-		td.status2 {
-			width: 5%
-		}
+  /* ── Name cell — flex on inner div, not on td itself (Chromium layout fix) ── */
+  .name-cell {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .5rem; width: 100%; min-width: 120px;
+  }
+  .name-cell strong { font-weight: 600; }
+  .name-cell small  { color: var(--muted); font-size: .72rem; display: block; }
+  .del { color: #cbd5e1; font-size: .72rem; text-decoration: none; flex-shrink: 0; margin-left: auto; }
+  .del:hover { color: var(--err); }
 
-		td.status0 {
-			background-color: green
-		}
+  /* ── Time cell ───────────────────────────── */
+  .time-cell { white-space: nowrap; }
+  .time-main { font-variant-numeric: tabular-nums; }
+  .time-rel  { color: var(--muted); font-size: .7rem; }
 
-		td.status1 {
-			background-color: yellow
-		}
+  /* ── Editable chip ───────────────────────── */
+  .editable {
+    display: inline-flex; align-items: center; gap: .2rem;
+    white-space: nowrap;
+  }
+  .editable-label {
+    display: inline-block; padding: .1rem .4rem; border-radius: .25rem;
+    background: #f1f5f9; color: var(--text); font-size: .72rem;
+    cursor: pointer; border: 1px solid transparent; transition: border-color .15s;
+  }
+  .editable-label:hover { border-color: var(--accent); }
+  .editable-input {
+    display: none; width: 5rem; padding: .1rem .3rem;
+    font-size: .72rem; font-family: inherit;
+    border: 1px solid var(--accent); border-radius: .25rem;
+    outline: none; background: white; color: var(--text);
+  }
+  .editable-save, .editable-discard {
+    display: none; background: none; border: none;
+    cursor: pointer; font-size: .75rem; padding: .05rem .15rem;
+    border-radius: .2rem; line-height: 1;
+  }
+  .editable-save    { color: var(--ok); }
+  .editable-discard { color: var(--err); }
+  .editable-save:hover    { background: var(--ok-bg); }
+  .editable-discard:hover { background: var(--err-bg); }
+  .editable.editing .editable-label   { display: none; }
+  .editable.editing .editable-input   { display: inline-block; }
+  .editable.editing .editable-save,
+  .editable.editing .editable-discard { display: inline-flex; align-items: center; }
 
-		td.status2 {
-			background-color: red
-		}
+  /* ── Status badge ────────────────────────── */
+  .badge {
+    display: inline-block; padding: .15rem .45rem; border-radius: .25rem;
+    font-size: .68rem; font-weight: 700; text-transform: uppercase; flex-shrink: 0;
+  }
+  .badge-ok   { background: var(--ok-bg);   color: var(--ok); }
+  .badge-warn { background: var(--warn-bg); color: var(--warn); }
+  .badge-err  { background: var(--err-bg);  color: var(--err); }
 
-		.relatime {
-			color: grey;
-			font-size: 80%
-		}
+  /* ── MQTT payload ────────────────────────── */
+  .payload-cell { width: 100%; min-width: 160px; max-width: 400px; }
+  .payload-short {
+    font-family: ui-monospace, monospace; font-size: .7rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%; display: block; cursor: pointer; color: var(--muted);
+  }
+  .payload-short:hover { color: var(--accent); }
+  .payload-full {
+    display: none; font-family: ui-monospace, monospace; font-size: .69rem;
+    white-space: pre-wrap; word-break: break-all;
+    background: #f8fafc; border: 1px solid var(--border); border-radius: .25rem;
+    padding: .4rem .5rem; margin-top: .25rem; max-height: 140px; overflow-y: auto;
+  }
+  .payload-expanded .payload-full  { display: block; }
+  .payload-expanded .payload-short { color: var(--accent); }
 
-		.datetime {
-			font-weight: bold;
-			font-size: 90%
-		}
+  /* ── History button ──────────────────────── */
+  .hist-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--accent); font-size: .7rem; padding: .1rem .3rem; border-radius: .2rem;
+  }
+  .hist-btn:hover { background: #eff6ff; }
 
-		.footer {
-			font-size: 80%
-		}
+  /* ── Overlay / dialog ────────────────────── */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 200; align-items: center; justify-content: center; }
+  .overlay.open { display: flex; }
+  .dialog {
+    background: var(--card); border-radius: .5rem;
+    width: min(560px, 90vw); max-height: 80vh; overflow-y: auto;
+    padding: 1.25rem; box-shadow: 0 20px 40px rgba(0,0,0,.2);
+  }
+  .dialog h3 { font-size: .82rem; margin-bottom: .75rem; }
+  .dialog-close { float: right; background: none; border: none; font-size: 1rem; cursor: pointer; color: var(--muted); }
+  .hist-table { width: 100%; border-collapse: collapse; font-size: .75rem; }
+  .hist-table td { padding: .28rem .35rem; border-bottom: 1px solid var(--border); font-family: ui-monospace, monospace; word-break: break-all; }
+  .hist-table td:first-child { white-space: nowrap; color: var(--muted); padding-right: .75rem; }
 
-		.log {
-			font-size: 70%
-		}
-
-		.log td {
-		    word-break: break-all;
-		}
-
-		.logts {
-			white-space: nowrap
-		}
-
-		.delete {
-			float: right
-		}
-
-		a,
-		a:visited,
-		a:hover,
-		a:active {
-			color: blue;
-		}
-
-		a:hover {
-			background-color: lightblue
-		}
-	</style>
-	<script>
-		document.addEventListener('click', function (e) {
-			e = e || window.event;
-			var target = e.target || e.srcElement;
-
-			if (target.hasAttribute('data-toggle') && target.getAttribute('data-toggle') == 'modal') {
-				if (target.hasAttribute('data-target')) {
-					var m_ID = target.getAttribute('data-target');
-					document.getElementById(m_ID).classList.add('open');
-					e.preventDefault();
-				}
-			}
-
-			if ((target.hasAttribute('data-dismiss') && target.getAttribute('data-dismiss') == 'modal') || target.classList.contains('modal')) {
-				var modal = document.querySelector('[class="modal open"]');
-				modal.classList.remove('open');
-				e.preventDefault();
-			}
-		}, false);
-
-		function submitDelete(f) {
-			if (confirm("Really delete entry?")) {
-				document.getElementById(f).submit();
-			}
-		}
-
-		function submitConfig(f, id, def) {
-			var t = prompt("Enter " + id + " (0 for default):", def);
-			document.getElementById(f)[id].value = t;
-			document.getElementById(f).submit();
-		}
-
-	</script>
+  /* ── Footer ──────────────────────────────── */
+  .footer {
+    margin-top: 1rem; padding: .75rem 0;
+    font-size: .72rem; color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+</style>
 </head>
-
 <body>
-	<h1>Janitor</h2>
-		{{ if .MonitorData.MQTT }}
-		<h3>MQTT targets</h3>
-		<table>
-			<tr>
-				<th>MQTT topic</th>
-				<th>First seen</th>
-				<th>Last seen</th>
-				<th>Last payload</th>
-				<th>History length</th>
-				<th>Total samples received</th>
-				<th>Avg transmit period</th>
-				<th>Timeout</th>
-				<th>Last error</th>
-				<th>Total errors</th>
-				<th>Status</th>
-			</tr>
-			{{ range $topic, $value := .MonitorData.MQTT}}
-			{{ if not $value.Deleted }}
-			<tr>
-				<td class="name">
-					<div>
-						<form id="delete_mqtt_{{ id $topic }}" method="post" action="/delete">
-							<input type="hidden" name="type" value="mqtt">
-							<input type="hidden" name="name" value="{{ $topic }}">
-						</form>
-						<span title="{{ $topic }}"> {{ $value.Name }} </span>
-						<span class="delete">(<a
-								href="javascript:submitDelete('delete_mqtt_{{ id $topic }}')">x</a>)</span>
-					</div>
-				</td>
-				<td>
-					<span class="datetime">{{ $value.FirstSeen.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.FirstSeen }} ago)</span>
-				</td>
-				<td>
-					<span class="datetime">{{ $value.LastSeen.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.LastSeen }} ago)</span>
-				</td>
-				<td class="payload" title='{{ $value.LastPayload }}'> {{ $value.LastPayload }}</td>
-				<td> {{ len $value.History }}
-					<a href="#" data-target="modal{{id $topic}}" data-toggle="modal">+</a>
-					<div id="modal{{id $topic}}" class="modal">
-						<div class="modal-window">
-							<table class="log">
-								{{ range $idx, $item := $value.History }}
-								<tr>
-									<td class="logts">
-										{{ $item.Timestamp.Format "2006-01-02 15:04:05"}}
-									</td>
-									<td>
-										<strong>{{ $item.Value }}</strong>
-									</td>
-								</tr>
-								{{ end }}
-							</table>
-						</div>
-					</div>
-					</div>
-				</td>
-				<td> {{ $value.Samples }} </td>
-				<td> {{ floatornot $value.AvgTransmit }} </td>
-				<td>
-					<form id="config_mqtt_{{ id $topic }}" method="post" action="/config">
-						<input type="hidden" name="type" value="mqtt">
-						<input type="hidden" name="name" value="{{ $topic }}">
-						<input type="hidden" name="timeout" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_mqtt_{{ id $topic }}', 'timeout', '{{ floatornot $value.Timeout }}')">
-						{{ floatornot $value.Timeout }}
-					</a>
-				</td>
-				<td>
-					{{ if not $value.LastError.IsZero }}
-					<span class="datetime">{{ $value.LastError.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.LastError }} ago)</span>
-					{{ end }}
-				</td>
-				<td> {{ $value.Alerts }} </td>
-				<td class="status{{ $value.Status }}"></td>
-			</tr>
-			{{ end }}
-			{{ end }}
-		</table>
-		{{ end }}
 
-		{{ if .MonitorData.Ping}}
-		<h3>Ping targets</h3>
-		<table>
-			<tr>
-				<th>Host name</th>
-				<th>Address</th>
-				<th>Interval</th>
-				<th>Threshold</th>
-				<th>Last OK</th>
-				<th>Last error</th>
-				<th>Total OK packets</th>
-				<th>Total error packets</th>
-				<th>Status</th>
-			</tr>
+<header class="topbar">
+  <h1>Janitor</h1>
+  <nav class="topbar-actions">
+    <a href="#" id="btn-log">Log</a>
+    <a href="#" id="btn-cfg">Config</a>
+    <a href="/reload_config">Reload config</a>
+    <a href="javascript:window.location.reload()">Refresh</a>
+  </nav>
+</header>
 
-			{{ range $host, $value := .MonitorData.Ping }}
+<main class="page">
 
-			<tr>
-				<td class="name">
-					<form id="delete_ping_{{ id $host }}" method="post" action="/delete">
-						<input type="hidden" name="type" value="ping">
-						<input type="hidden" name="name" value="{{ $host }}">
-					</form>
-					{{ $value.Name }}
-					<span class="delete">(<a href="javascript:submitDelete('delete_ping_{{ id $host }}')">x</a>)</span>
-				</td>
-				<td class="name"> {{ $host }} </td>
-				<td>
-					<form id="config_ping_1_{{ id $host }}" method="post" action="/config">
-						<input type="hidden" name="type" value="ping">
-						<input type="hidden" name="name" value="{{ $host }}">
-						<input type="hidden" name="interval" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_ping_1_{{ id $host }}', 'interval', '{{ $value.Interval }}')">
-						{{ $value.Interval }}
-					</a>
-				</td>
-				<td>
-					<form id="config_ping_2_{{ id $host }}" method="post" action="/config">
-						<input type="hidden" name="type" value="ping">
-						<input type="hidden" name="name" value="{{ $host }}">
-						<input type="hidden" name="threshold" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_ping_2_{{ id $host }}', 'threshold', '{{ $value.Threshold }}')">
-						{{ $value.Threshold }}
-					</a>
-				</td>
+  <div class="summary" id="summary">
+    <div class="pill-group">
+      <button class="pill pill-ok"   data-filter="ok">  <span class="pill-dot"></span> OK <span class="pill-count">{{ .StatusOkCount }}</span></button>
+      <button class="pill pill-warn" data-filter="warn"><span class="pill-dot"></span> Warning <span class="pill-count">{{ .StatusWarnCount }}</span></button>
+      <button class="pill pill-err"  data-filter="err"> <span class="pill-dot"></span> Error <span class="pill-count">{{ .StatusErrorCount }}</span></button>
+    </div>
+    <div class="pill-group pill-group-right">
+      {{ if .MonitorData.MQTT }}<button class="pill pill-type" data-type="mqtt">📡 MQTT <span class="pill-count">{{ len .MonitorData.MQTT }}</span></button>{{ end }}
+      {{ if .MonitorData.Ping }}<button class="pill pill-type" data-type="ping">🏓 Ping <span class="pill-count">{{ len .MonitorData.Ping }}</span></button>{{ end }}
+      {{ if .MonitorData.HTTP }}<button class="pill pill-type" data-type="http">🌐 HTTP <span class="pill-count">{{ len .MonitorData.HTTP }}</span></button>{{ end }}
+      {{ if .MonitorData.Exec }}<button class="pill pill-type" data-type="exec">⚙️ Exec <span class="pill-count">{{ len .MonitorData.Exec }}</span></button>{{ end }}
+    </div>
+  </div>
 
-				<td>
-					{{ if not $value.LastOK.IsZero }}
-					<span class="datetime">{{ $value.LastOK.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.LastOK }} ago)</span>
-					{{ end }}
-				</td>
-				<td>
-					{{ if not $value.LastError.IsZero }}
-					<span class="datetime">{{ $value.LastError.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.LastError }} ago)</span>
-					{{ end }}
-				</td>
-				<td> {{ $value.TotalOK }}</td>
-				<td> {{ $value.TotalError }}</td>
-				<td class="status{{ $value.Status }}"></td>
-			</tr>
-			{{ end }}
+  {{ if .MonitorData.MQTT }}
+  <section class="section" id="section-mqtt" data-type="mqtt">
+    <div class="section-head"><h2>MQTT targets</h2></div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>Topic</th><th>First seen</th><th>Last seen</th><th>Payload</th>
+          <th>History</th><th>Samples</th><th>Avg period</th><th>Timeout</th>
+          <th>Last error</th><th>Errors</th>
+        </tr></thead>
+        <tbody>
+          {{ range $topic, $v := .MonitorData.MQTT }}{{ if not $v.Deleted }}
+          <tr data-status="{{ statusClass $v.Status }}">
+            <td>
+              <div class="name-cell">
+                <div>
+                  <strong>{{ $v.Name }}</strong>
+                  <small>{{ $topic }}</small>
+                </div>
+                <span class="badge badge-{{ statusClass $v.Status }}">{{ statusLabel $v.Status }}</span>
+                <form id="delete_mqtt_{{ id $topic }}" method="post" action="/delete" style="display:none">
+                  <input type="hidden" name="type" value="mqtt">
+                  <input type="hidden" name="name" value="{{ $topic }}">
+                </form>
+                <a class="del" href="javascript:submitDelete('delete_mqtt_{{ id $topic }}')" title="Delete">✕</a>
+              </div>
+            </td>
+            <td class="time-cell">
+              <span class="time-main">{{ $v.FirstSeen.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.FirstSeen }} ago</span>
+            </td>
+            <td class="time-cell">
+              <span class="time-main">{{ $v.LastSeen.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.LastSeen }} ago</span>
+            </td>
+            <td class="payload-cell">
+              <span class="payload-short" onclick="this.closest('.payload-cell').classList.toggle('payload-expanded')">{{ $v.LastPayload }}</span>
+              <pre class="payload-full">{{ $v.LastPayload }}</pre>
+            </td>
+            <td>
+              <button class="hist-btn" onclick="document.getElementById('hist_mqtt_{{ id $topic }}').classList.add('open')">{{ len $v.History }} ▸</button>
+            </td>
+            <td>{{ $v.Samples }}</td>
+            <td>{{ floatornot $v.AvgTransmit }}</td>
+            <td>
+              <form id="config_mqtt_{{ id $topic }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="mqtt">
+                <input type="hidden" name="name" value="{{ $topic }}">
+                <input type="hidden" name="timeout" value="0">
+              </form>
+              <span class="editable" data-form="config_mqtt_{{ id $topic }}" data-field="timeout">
+                <span class="editable-label" onclick="editStart(this)">{{ floatornot $v.Timeout }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td class="time-cell">
+              {{ if not $v.LastError.IsZero }}
+              <span class="time-main">{{ $v.LastError.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.LastError }} ago</span>
+              {{ end }}
+            </td>
+            <td>{{ $v.Alerts }}</td>
+          </tr>
+          {{ end }}{{ end }}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <!-- MQTT history dialogs -->
+  {{ range $topic, $v := .MonitorData.MQTT }}{{ if not $v.Deleted }}
+  <div id="hist_mqtt_{{ id $topic }}" class="overlay" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="dialog">
+      <button class="dialog-close" onclick="this.closest('.overlay').classList.remove('open')">✕</button>
+      <h3>{{ $topic }} — history</h3>
+      <table class="hist-table">
+        {{ range $v.History }}
+        <tr><td>{{ .Timestamp.Format "2006-01-02 15:04:05" }}</td><td>{{ .Value }}</td></tr>
+        {{ end }}
+      </table>
+    </div>
+  </div>
+  {{ end }}{{ end }}
+  {{ end }}
 
-		</table>
-		{{ end }}
+  {{ if .MonitorData.Ping }}
+  <section class="section" id="section-ping" data-type="ping">
+    <div class="section-head"><h2>Ping targets</h2></div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Address</th><th>Interval</th><th>Threshold</th>
+          <th>Last OK</th><th>Last error</th><th>Total OK</th><th>Total error</th>
+        </tr></thead>
+        <tbody>
+          {{ range $host, $v := .MonitorData.Ping }}
+          <tr data-status="{{ statusClass $v.Status }}">
+            <td>
+              <div class="name-cell">
+                <strong>{{ $v.Name }}</strong>
+                <span class="badge badge-{{ statusClass $v.Status }}">{{ statusLabel $v.Status }}</span>
+                <form id="delete_ping_{{ id $host }}" method="post" action="/delete" style="display:none">
+                  <input type="hidden" name="type" value="ping">
+                  <input type="hidden" name="name" value="{{ $host }}">
+                </form>
+                <a class="del" href="javascript:submitDelete('delete_ping_{{ id $host }}')" title="Delete">✕</a>
+              </div>
+            </td>
+            <td>{{ $host }}</td>
+            <td>
+              <form id="config_ping_1_{{ id $host }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="ping">
+                <input type="hidden" name="name" value="{{ $host }}">
+                <input type="hidden" name="interval" value="0">
+              </form>
+              <span class="editable" data-form="config_ping_1_{{ id $host }}" data-field="interval">
+                <span class="editable-label" onclick="editStart(this)">{{ $v.Interval }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td>
+              <form id="config_ping_2_{{ id $host }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="ping">
+                <input type="hidden" name="name" value="{{ $host }}">
+                <input type="hidden" name="threshold" value="0">
+              </form>
+              <span class="editable" data-form="config_ping_2_{{ id $host }}" data-field="threshold">
+                <span class="editable-label" onclick="editStart(this)">{{ $v.Threshold }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td class="time-cell">
+              {{ if not $v.LastOK.IsZero }}
+              <span class="time-main">{{ $v.LastOK.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.LastOK }} ago</span>
+              {{ end }}
+            </td>
+            <td class="time-cell">
+              {{ if not $v.LastError.IsZero }}
+              <span class="time-main">{{ $v.LastError.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.LastError }} ago</span>
+              {{ end }}
+            </td>
+            <td>{{ $v.TotalOK }}</td>
+            <td>{{ $v.TotalError }}</td>
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {{ end }}
 
-		{{ if .MonitorData.HTTP}}
-		<h3>HTTP targets</h3>
-		<table>
-			<tr>
-				<th>Host name</th>
-				<th>Address</th>
-				<th>Interval</th>
-				<th>Timeout</th>
-				<th>Threshold</th>
-				<th>Last OK</th>
-				<th>Last error</th>
-				<th>Total OK requests</th>
-				<th>Total error requests</th>
-				<th>Last response value</th>
-				<th>Last error message</th>
-				<th>Status</th>
-			</tr>
+  {{ if .MonitorData.HTTP }}
+  <section class="section" id="section-http" data-type="http">
+    <div class="section-head"><h2>HTTP targets</h2></div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Address</th><th>Interval</th><th>Timeout</th><th>Threshold</th>
+          <th>Last OK</th><th>Last error</th><th>Total OK</th><th>Total error</th>
+          <th>Response</th><th>Last error msg</th>
+        </tr></thead>
+        <tbody>
+          {{ range $host, $v := .MonitorData.HTTP }}
+          <tr data-status="{{ statusClass $v.Status }}">
+            <td>
+              <div class="name-cell">
+                <strong>{{ $v.Name }}</strong>
+                <span class="badge badge-{{ statusClass $v.Status }}">{{ statusLabel $v.Status }}</span>
+                <form id="delete_http_{{ id $host }}" method="post" action="/delete" style="display:none">
+                  <input type="hidden" name="type" value="http">
+                  <input type="hidden" name="name" value="{{ $host }}">
+                </form>
+                <a class="del" href="javascript:submitDelete('delete_http_{{ id $host }}')" title="Delete">✕</a>
+              </div>
+            </td>
+            <td><a href="{{ $host }}" style="color:var(--accent)">{{ $host }}</a></td>
+            <td>
+              <form id="config_http_1_{{ id $host }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="http">
+                <input type="hidden" name="name" value="{{ $host }}">
+                <input type="hidden" name="interval" value="0">
+              </form>
+              <span class="editable" data-form="config_http_1_{{ id $host }}" data-field="interval">
+                <span class="editable-label" onclick="editStart(this)">{{ $v.Interval }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td>
+              <form id="config_http_2_{{ id $host }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="http">
+                <input type="hidden" name="name" value="{{ $host }}">
+                <input type="hidden" name="timeout" value="0">
+              </form>
+              <span class="editable" data-form="config_http_2_{{ id $host }}" data-field="timeout">
+                <span class="editable-label" onclick="editStart(this)">{{ $v.Timeout }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td>
+              <form id="config_http_3_{{ id $host }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="http">
+                <input type="hidden" name="name" value="{{ $host }}">
+                <input type="hidden" name="threshold" value="0">
+              </form>
+              <span class="editable" data-form="config_http_3_{{ id $host }}" data-field="threshold">
+                <span class="editable-label" onclick="editStart(this)">{{ $v.Threshold }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td class="time-cell">
+              {{ if not $v.LastOK.IsZero }}
+              <span class="time-main">{{ $v.LastOK.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.LastOK }} ago</span>
+              {{ end }}
+            </td>
+            <td class="time-cell">
+              {{ if not $v.LastError.IsZero }}
+              <span class="time-main">{{ $v.LastError.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.LastError }} ago</span>
+              {{ end }}
+            </td>
+            <td>{{ $v.TotalOK }}</td>
+            <td>{{ $v.TotalError }}</td>
+            <td>
+              {{ if $v.LastValue }}
+              <button class="hist-btn" onclick="document.getElementById('resp_http_{{ id $host }}').classList.add('open')">view</button>
+              {{ end }}
+            </td>
+            <td style="color:var(--err);font-size:.75rem">{{ $v.LastErrorValue }}</td>
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <!-- HTTP response dialogs -->
+  {{ range $host, $v := .MonitorData.HTTP }}
+  {{ if $v.LastValue }}
+  <div id="resp_http_{{ id $host }}" class="overlay" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="dialog">
+      <button class="dialog-close" onclick="this.closest('.overlay').classList.remove('open')">✕</button>
+      <h3>{{ $v.Name }} — last response</h3>
+      <pre style="font-size:.78rem;background:#f8fafc;padding:.5rem;border-radius:.25rem;word-break:break-all;white-space:pre-wrap;overflow-x:auto">{{ $v.LastValue }}</pre>
+    </div>
+  </div>
+  {{ end }}
+  {{ end }}
+  {{ end }}
 
-			{{ range $host, $value := .MonitorData.HTTP }}
+  {{ if .MonitorData.Exec }}
+  <section class="section" id="section-exec" data-type="exec">
+    <div class="section-head"><h2>Exec targets</h2></div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Command</th><th>Interval</th><th>Timeout</th><th>Threshold</th>
+          <th>Last OK</th><th>Last error</th><th>Total OK</th><th>Total error</th>
+        </tr></thead>
+        <tbody>
+          {{ range $command, $v := .MonitorData.Exec }}
+          <tr data-status="{{ statusClass $v.Status }}">
+            <td>
+              <div class="name-cell">
+                <strong>{{ $v.Name }}</strong>
+                <span class="badge badge-{{ statusClass $v.Status }}">{{ statusLabel $v.Status }}</span>
+                <form id="delete_exec_{{ id $command }}" method="post" action="/delete" style="display:none">
+                  <input type="hidden" name="type" value="exec">
+                  <input type="hidden" name="name" value="{{ $command }}">
+                </form>
+                <a class="del" href="javascript:submitDelete('delete_exec_{{ id $command }}')" title="Delete">✕</a>
+              </div>
+            </td>
+            <td style="font-family:ui-monospace,monospace;font-size:.8rem">{{ $command }}</td>
+            <td>
+              <form id="config_exec_1_{{ id $command }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="exec">
+                <input type="hidden" name="name" value="{{ $command }}">
+                <input type="hidden" name="interval" value="0">
+              </form>
+              <span class="editable" data-form="config_exec_1_{{ id $command }}" data-field="interval">
+                <span class="editable-label" onclick="editStart(this)">{{ $v.Interval }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td>
+              <form id="config_exec_2_{{ id $command }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="exec">
+                <input type="hidden" name="name" value="{{ $command }}">
+                <input type="hidden" name="timeout" value="0">
+              </form>
+              <span class="editable" data-form="config_exec_2_{{ id $command }}" data-field="timeout">
+                <span class="editable-label" onclick="editStart(this)">{{ $v.Timeout }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td>
+              <form id="config_exec_3_{{ id $command }}" method="post" action="/config" style="display:none">
+                <input type="hidden" name="type" value="exec">
+                <input type="hidden" name="name" value="{{ $command }}">
+                <input type="hidden" name="threshold" value="0">
+              </form>
+              <span class="editable" data-form="config_exec_3_{{ id $command }}" data-field="threshold">
+                <span class="editable-label" onclick="editStart(this)">{{ $v.Threshold }}</span>
+                <input class="editable-input" type="text">
+                <button class="editable-save" title="Save">✓</button>
+                <button class="editable-discard" title="Discard">✕</button>
+              </span>
+            </td>
+            <td class="time-cell">
+              {{ if not $v.LastOK.IsZero }}
+              <span class="time-main">{{ $v.LastOK.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.LastOK }} ago</span>
+              {{ end }}
+            </td>
+            <td class="time-cell">
+              {{ if not $v.LastError.IsZero }}
+              <span class="time-main">{{ $v.LastError.Format "2006-01-02 15:04:05" }}</span>
+              <br><span class="time-rel">{{ relaTime $v.LastError }} ago</span>
+              {{ end }}
+            </td>
+            <td>{{ $v.TotalOK }}</td>
+            <td>{{ $v.TotalError }}</td>
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {{ end }}
 
-			<tr>
-				<td class="name">
-					<form id="delete_http_{{ id $host }}" method="post" action="/delete">
-						<input type="hidden" name="type" value="http">
-						<input type="hidden" name="name" value="{{ $host }}">
-					</form>
-					{{ $value.Name }}
-					<span class="delete">(<a href="javascript:submitDelete('delete_http_{{ id $host }}')">x</a>)</span>
-				</td>
-				<td class="name">
-					<a href="{{ $host }}">
-						{{ $host }}
-					</a>
-				</td>
-				<td>
-					<form id="config_http_1_{{ id $host }}" method="post" action="/config">
-						<input type="hidden" name="type" value="http">
-						<input type="hidden" name="name" value="{{ $host }}">
-						<input type="hidden" name="interval" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_http_1_{{ id $host }}', 'interval', '{{ $value.Interval }}')">
-						{{ $value.Interval }}
-					</a>
-				</td>
-				<td>
-					<form id="config_http_2_{{ id $host }}" method="post" action="/config">
-						<input type="hidden" name="type" value="http">
-						<input type="hidden" name="name" value="{{ $host }}">
-						<input type="hidden" name="timeout" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_http_2_{{ id $host }}', 'timeout', '{{ $value.Timeout }}')">
-						{{ $value.Timeout }}
-					</a>
-				</td>
-				<td>
-					<form id="config_http_3_{{ id $host }}" method="post" action="/config">
-						<input type="hidden" name="type" value="http">
-						<input type="hidden" name="name" value="{{ $host }}">
-						<input type="hidden" name="threshold" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_http_3_{{ id $host }}', 'threshold', '{{ $value.Threshold }}')">
-						{{ $value.Threshold }}
-					</a>
-				</td>
-				<td>
-					{{ if not $value.LastOK.IsZero }}
-					<span class="datetime">{{ $value.LastOK.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.LastOK }} ago)</span>
-					{{ end }}
-				</td>
-				<td>
-					{{ if not $value.LastError.IsZero }}
-					<span class="datetime">{{ $value.LastError.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.LastError }} ago)</span>
-					{{ end }}
-				</td>
-				<td> {{ $value.TotalOK }}</td>
-				<td> {{ $value.TotalError }}</td>
-				<td>
-					<a href="#" data-target="modal{{ id $host }}" data-toggle="modal">+</a>
-					<div id="modal{{ id $host }}" class="modal">
-						<div class="modal-window">
-							{{ $value.LastValue }}
-						</div>
-					</div>
-				</td>
-				<td> {{ $value.LastErrorValue }} </td>
-				<td class="status{{ $value.Status }}"></td>
-			</tr>
+  <footer class="footer">
+    Generated {{ .Timestamp.Format "2006-01-02 15:04:05" }} &nbsp;·&nbsp;
+    Running since {{ .Uptime.Format "2006-01-02 15:04:05" }} ({{ relaTime .Uptime }} ago) &nbsp;·&nbsp;
+    {{ .Fullversion }}
+  </footer>
 
-			{{ end }}
-		</table>
-		{{ end }}
+</main>
 
-		{{ if .MonitorData.Exec}}
-		<h3>Exec targets</h3>
-		<table>
-			<tr>
-				<th>Name</th>
-				<th>Command</th>
-				<th>Interval</th>
-				<th>Timeout</th>
-				<th>Threshold</th>
-				<th>Last OK</th>
-				<th>Last error</th>
-				<th>Total OK requests</th>
-				<th>Total error requests</th>
-				<th>Status</th>
-			</tr>
+<!-- Log dialog -->
+<div id="log-modal" class="overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="dialog">
+    <button class="dialog-close" onclick="this.closest('.overlay').classList.remove('open')">✕</button>
+    <h3>Log</h3>
+    <table class="hist-table">
+      {{ range $e := .LogHistory }}
+      <tr>
+        <td>{{ $e.Timestamp.Format "2006-01-02 15:04:05" }}</td>
+        <td>{{ $e.Value }}</td>
+      </tr>
+      {{ end }}
+    </table>
+  </div>
+</div>
 
-			{{ range $command, $value := .MonitorData.Exec }}
+<!-- Config dialog -->
+<div id="cfg-modal" class="overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="dialog">
+    <button class="dialog-close" onclick="this.closest('.overlay').classList.remove('open')">✕</button>
+    <h3>Config</h3>
+    <pre style="font-size:.78rem;background:#f8fafc;padding:.5rem;border-radius:.25rem;overflow-x:auto">{{ json .Config }}</pre>
+  </div>
+</div>
 
-			<tr>
-				<td class="name">
-					<form id="delete_exec_{{ id $command }}" method="post" action="/delete">
-						<input type="hidden" name="type" value="exec">
-						<input type="hidden" name="name" value="{{ $command }}">
-					</form>
-					{{ $value.Name }}
-					<span class="delete">(<a
-							href="javascript:submitDelete('delete_exec_{{ id $command }}')">x</a>)</span>
-				</td>
-				<td class="name">
-					{{ $command }}
-				</td>
-				<td>
-					<form id="config_exec_1_{{ id $command }}" method="post" action="/config">
-						<input type="hidden" name="type" value="exec">
-						<input type="hidden" name="name" value="{{ $command }}">
-						<input type="hidden" name="interval" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_exec_1_{{ id $command }}', 'interval', '{{ $value.Interval }}')">
-						{{ $value.Interval }}
-					</a>
-				</td>
-				<td>
-					<form id="config_exec_2_{{ id $command }}" method="post" action="/config">
-						<input type="hidden" name="type" value="exec">
-						<input type="hidden" name="name" value="{{ $command }}">
-						<input type="hidden" name="timeout" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_exec_2_{{ id $command }}', 'timeout', '{{ $value.Timeout }}')">
-						{{ $value.Timeout }}
-					</a>
-				</td>
-				<td>
-					<form id="config_exec_3_{{ id $command }}" method="post" action="/config">
-						<input type="hidden" name="type" value="exec">
-						<input type="hidden" name="name" value="{{ $command }}">
-						<input type="hidden" name="threshold" value=0>
-					</form>
-					<a
-						href="javascript:submitConfig('config_exec_3_{{ id $command }}', 'threshold', '{{ $value.Threshold }}')">
-						{{ $value.Threshold }}
-					</a>
-				</td>
-				<td>
-					{{ if not $value.LastOK.IsZero }}
-					<span class="datetime">{{ $value.LastOK.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.LastOK }} ago)</span>
-					{{ end }}
-				</td>
-				<td>
-					{{ if not $value.LastError.IsZero }}
-					<span class="datetime">{{ $value.LastError.Format "2006-01-02 15:04:05" }}</span>
-					<br />
-					<span class="relatime">({{ relaTime $value.LastError }} ago)</span>
-					{{ end }}
-				</td>
-				<td> {{ $value.TotalOK }}</td>
-				<td> {{ $value.TotalError }}</td>
-				<td class="status{{ $value.Status }}"></td>
-			</tr>
+<script>
+  document.getElementById('btn-log').onclick = function(e){ e.preventDefault(); document.getElementById('log-modal').classList.add('open'); };
+  document.getElementById('btn-cfg').onclick = function(e){ e.preventDefault(); document.getElementById('cfg-modal').classList.add('open'); };
 
-			{{ end }}
-		</table>
-		{{ end }}
+  function submitDelete(f) {
+    if (confirm("Really delete entry?")) { document.getElementById(f).submit(); }
+  }
 
-		<p class="footer">
-			Generated at {{ .Timestamp.Format "2006-01-02 15:04:05" }}.
-			<br />
-			Running since {{ .Uptime.Format "2006-01-02 15:04:05" }}
-			<span class="relatime">({{ relaTime .Uptime }} ago)</span>.
-			<br />
-			<a href="#" data-target="modal_log" data-toggle="modal">Log</a>
-			<a href="#" data-target="modal_config" data-toggle="modal">Config</a>
-			<a href="/reload_config">Reload config</a>
-			<a href="javascript:window.location.reload()">Refresh</a>
-			<br />
-			<span class="relatime">{{ .Fullversion }}</span>
+  /* ── Editable inline fields ──────────────── */
+  function editStart(label) {
+    var widget = label.closest('.editable');
+    var input = widget.querySelector('.editable-input');
+    input.value = label.textContent.trim();
+    widget.classList.add('editing');
+    input.focus();
+    input.select();
+  }
 
-		<div id="modal_config" class="modal">
-			<div class="modal-window">
-				<pre>{{ json .Config }}</pre>
-			</div>
-		</div>
+  document.addEventListener('click', function(e) {
+    var save = e.target.closest('.editable-save');
+    var discard = e.target.closest('.editable-discard');
+    if (save) {
+      var widget = save.closest('.editable');
+      var val = widget.querySelector('.editable-input').value;
+      var formId = widget.dataset.form;
+      var field  = widget.dataset.field;
+      var form = document.getElementById(formId);
+      form[field].value = val;
+      form.submit();
+    } else if (discard) {
+      discard.closest('.editable').classList.remove('editing');
+    }
+  });
 
-		<div id="modal_log" class="modal">
-			<div class="modal-window">
-				<table class="log">
-					{{ range $e := .LogHistory }}
-					<tr>
-						<td class="logts">{{ $e.Timestamp.Format "2006-01-02 15:04:05" }}</td>
-						<td>{{ $e.Value }}</td>
-					</tr>
-					{{ end }}
-				</table>
-			</div>
-		</div>
+  document.addEventListener('keydown', function(e) {
+    var input = e.target.closest('.editable-input');
+    if (!input) return;
+    if (e.key === 'Enter') {
+      input.closest('.editable').querySelector('.editable-save').click();
+    } else if (e.key === 'Escape') {
+      input.closest('.editable').classList.remove('editing');
+    }
+  });
 
-		</p>
+  /* ── Status + type filter pills ─────────── */
+  var activeStatus = null;
+  var activeType   = null;
+  var summary      = document.getElementById('summary');
+  var allSections  = Array.from(document.querySelectorAll('.section[data-type]'));
+
+  function applyFilters() {
+    summary.classList.toggle('status-filtered', activeStatus !== null);
+    summary.classList.toggle('type-filtered',   activeType   !== null);
+
+    allSections.forEach(function(s) {
+      var typeMatch = activeType === null || s.dataset.type === activeType;
+      if (!typeMatch) { s.style.display = 'none'; return; }
+      var rows = Array.from(s.querySelectorAll('tbody tr[data-status]'));
+      var anyVisible = false;
+      rows.forEach(function(r) {
+        var statusMatch = activeStatus === null || r.dataset.status === activeStatus;
+        r.style.display = statusMatch ? '' : 'none';
+        if (statusMatch) anyVisible = true;
+      });
+      s.style.display = anyVisible ? '' : 'none';
+    });
+  }
+
+  document.querySelectorAll('.pill[data-filter]').forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      var f = this.dataset.filter;
+      activeStatus = activeStatus === f ? null : f;
+      document.querySelectorAll('.pill[data-filter]').forEach(function(p) { p.classList.remove('active'); });
+      if (activeStatus) this.classList.add('active');
+      applyFilters();
+    });
+  });
+
+  document.querySelectorAll('.pill[data-type]').forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      var t = this.dataset.type;
+      activeType = activeType === t ? null : t;
+      document.querySelectorAll('.pill[data-type]').forEach(function(p) { p.classList.remove('active'); });
+      if (activeType) this.classList.add('active');
+      applyFilters();
+    });
+  });
+</script>
 </body>
-
 </html>
