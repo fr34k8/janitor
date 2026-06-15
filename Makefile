@@ -14,6 +14,18 @@ test:
 static_build:
 	@CGO_ENABLED=0 go build -ldflags="-X main.version=$(VERSION) -X main.build=$(BUILD) -X main.commit=$(COMMIT)"
 
+LDFLAGS := -X main.version=$(VERSION) -X main.build=$(BUILD) -X main.commit=$(COMMIT)
+
+.PHONY: build-all
+build-all:
+	@mkdir -p dist
+	GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o dist/janitor-linux-amd64
+	GOOS=linux   GOARCH=arm   GOARM=5 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o dist/janitor-linux-arm
+	GOOS=linux   GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o dist/janitor-linux-arm64
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o dist/janitor-windows-amd64.exe
+	GOOS=darwin  GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o dist/janitor-darwin-amd64
+	GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o dist/janitor-darwin-arm64
+
 .PHONY: docker
 docker:
 	docker build . -t $(IMAGE)

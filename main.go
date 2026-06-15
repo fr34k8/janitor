@@ -22,8 +22,8 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"gopkg.in/yaml.v2"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"gopkg.in/yaml.v3"
 )
 
 // Config stores the variables for runtime configuration.
