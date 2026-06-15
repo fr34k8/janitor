@@ -76,6 +76,8 @@ Alternatively, you can use the supplied Dockerfile to build a container yourself
     $ docker build . -t janitor
     $ docker run -v $(pwd)/config.yml:/janitor/config.yml -p 8080:8080 janitor
 
+The latest development version is also available with the `dev` tag i.e. `abali/janitor:dev`.
+
 ## Future plans and contributing
 
 Janitor's objective is clear and simple: to monitor the availability and operation of IOT devices and alert in case if any issues. Any future improvements should follow this objective and thus either add new ways of monitoring, or add new ways of alerting.

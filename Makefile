@@ -1,8 +1,8 @@
 IMAGE   := abali/janitor
 
-VERSION := $(shell git describe --tags || echo "unknown")
+VERSION := $(shell git describe --tags --always)
 BUILD   := $(shell date '+%FT%T%z')
-COMMIT  := $(shell git describe --always --long)
+COMMIT  := $(shell git rev-parse --short HEAD)
 
 build:
 	@go build -ldflags="-X main.version=$(VERSION) -X main.build=$(BUILD) -X main.commit=$(COMMIT)"
