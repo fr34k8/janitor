@@ -1,6 +1,8 @@
 on:
   release:
     types: [published]
+  push:
+    branches: [master]
 
 jobs:
   docker:
@@ -13,3 +15,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - run: make publish
+        if: github.event_name == 'release'
+      - run: make publish-dev
+        if: github.event_name == 'push'
