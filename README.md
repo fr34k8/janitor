@@ -82,6 +82,10 @@ Janitor's objective is clear and simple: to monitor the availability and operati
 
 Janitor is open source software and you are encouraged to send pull requests via Github that improve the software.
 
+## AI usage
+
+AI has been used to improve the application by creating test cases, fixing bugs and enhancing functionalities. All changes made by AI have been reviewed by a human, but there is no guarantee that all mistakes have been found. All commits made by or with the assistance of AI are marked clearly in the commit's description.
+
 ## License
 
 Janitor is licensed under GPL 3.0.
